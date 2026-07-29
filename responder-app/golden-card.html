@@ -8,7 +8,9 @@
     <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/styles.css" />
 </head>
-<body>
+<body class="fade-in">
+<div class="bg-blob blob-1"></div>
+<div class="bg-blob blob-2"></div>
 <div class="header">
     <span class="logo">VitaID Responder</span>
     <span class="link" onclick="logout()">Log out</span>
@@ -22,55 +24,57 @@
     </div>
 
     <div id="gc-content" style="display: none;">
-        <!-- Identity + freshness -->
-        <div class="card">
-            <div class="gc-label">Patient</div>
-            <div class="gc-value" id="patientName"></div>
-            <div style="margin-top: 0.4rem; color: var(--color-text-muted);" id="patientDob"></div>
-            <div id="incompleteWarning" class="error-text" style="margin-top: 0.75rem;"></div>
-            <div class="mono" style="font-size: 0.8rem; color: var(--color-text-muted); margin-top: 0.75rem;" id="lastUpdated"></div>
+        <div class="gc-grid">
+            <!-- Identity + freshness -->
+            <div class="card gc-section gc-full-width" style="animation-delay: 0.1s;">
+                <div class="gc-label">Patient</div>
+                <div class="gc-value" id="patientName"></div>
+                <div style="margin-top: 0.4rem; color: var(--color-text-muted);" id="patientDob"></div>
+                <div id="incompleteWarning" class="error-text" style="margin-top: 0.75rem;"></div>
+                <div class="mono" style="font-size: 0.8rem; color: var(--color-text-muted); margin-top: 0.75rem;" id="lastUpdated"></div>
+            </div>
+
+            <!-- Critical alerts  -->
+            <div id="criticalAlerts" class="gc-full-width"></div>
+
+            <!-- Blood type -->
+            <div class="card gc-section" style="animation-delay: 0.2s;">
+                <div class="gc-label">Blood type</div>
+                <div class="gc-value blood" id="bloodType"></div>
+            </div>
+
+            <!-- Organ donor -->
+            <div class="card gc-section" style="animation-delay: 0.3s;">
+                <div class="gc-label">Organ donor</div>
+                <div class="gc-value" id="organDonor"></div>
+            </div>
+
+            <!-- Allergies -->
+            <div class="card gc-section" style="animation-delay: 0.4s;">
+                <div class="gc-label">Allergies</div>
+                <div id="allergiesList"></div>
+            </div>
+
+            <!-- Medications -->
+            <div class="card gc-section" style="animation-delay: 0.5s;">
+                <div class="gc-label">Current medications</div>
+                <div id="medicationsList"></div>
+            </div>
+
+            <!-- Conditions -->
+            <div class="card gc-section" style="animation-delay: 0.6s;">
+                <div class="gc-label">Chronic conditions</div>
+                <div id="conditionsList"></div>
+            </div>
+
+            <!-- Emergency contacts -->
+            <div class="card gc-section" style="animation-delay: 0.7s;">
+                <div class="gc-label" style="margin-bottom: 0.75rem;">Emergency contacts</div>
+                <div id="contactsList"></div>
+            </div>
         </div>
 
-        <!-- Critical alerts  -->
-        <div id="criticalAlerts"></div>
-
-        <!-- Blood type -->
-        <div class="card gc-section" style="margin-top: 0;">
-            <div class="gc-label">Blood type</div>
-            <div class="gc-value blood" id="bloodType"></div>
-        </div>
-
-        <!-- Allergies -->
-        <div class="card gc-section" style="margin-top: 0;">
-            <div class="gc-label">Allergies</div>
-            <div id="allergiesList"></div>
-        </div>
-
-        <!-- Medications -->
-        <div class="card gc-section" style="margin-top: 0;">
-            <div class="gc-label">Current medications</div>
-            <div id="medicationsList"></div>
-        </div>
-
-        <!-- Conditions -->
-        <div class="card gc-section" style="margin-top: 0;">
-            <div class="gc-label">Chronic conditions</div>
-            <div id="conditionsList"></div>
-        </div>
-
-        <!-- Organ donor -->
-        <div class="card gc-section" style="margin-top: 0;">
-            <div class="gc-label">Organ donor</div>
-            <div class="gc-value" id="organDonor"></div>
-        </div>
-
-        <!-- Emergency contacts -->
-        <div class="card gc-section" style="margin-top: 0;">
-            <div class="gc-label" style="margin-bottom: 0.75rem;">Emergency contacts</div>
-            <div id="contactsList"></div>
-        </div>
-
-        <button class="btn-option" onclick="window.location.href='search.html'">← New search</button>
+        <button class="btn-option" onclick="window.location.href='search.html'" style="margin-top: 2rem; max-width: 240px;">← New search</button>
     </div>
 </div>
 
@@ -119,8 +123,8 @@
 
         document.getElementById('gc-content').style.display = 'block';
 
-        document.getElementById('patientName').textContent = card.patientName || 'Unknown';
-        document.getElementById('patientDob').textContent = `DOB: ${formatDate(card.dateOfBirth)}`;
+        document.getElementById('patientName').textContent = card.patientName || card.fullName || 'Unknown';
+        document.getElementById('patientDob').textContent = `DOB: ${formatDate(card.dateOfBirth || card.dob)}`;
         document.getElementById('lastUpdated').textContent = `Last updated: ${formatDateTime(card.lastUpdated)}`;
 
         if (card.completenessIncomplete) {

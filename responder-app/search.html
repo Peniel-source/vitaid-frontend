@@ -7,12 +7,36 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/styles.css" />
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://unpkg.com/html5-qrcode"></script>
     <style>
         .mode-toggle { display: none; }
         .mode-toggle.visible { display: block; }
+        #reader {
+            width: 100%;
+            border-radius: 12px;
+            overflow: hidden;
+            border: 1px solid var(--glass-border) !important;
+            background: rgba(0,0,0,0.2);
+        }
+        #reader__dashboard_section_csr button {
+            background: var(--color-primary) !important;
+            color: var(--color-primary-dark) !important;
+            border: none !important;
+            padding: 0.5rem 1rem !important;
+            border-radius: 8px !important;
+            cursor: pointer !important;
+            margin: 10px 5px !important;
+            font-weight: 600 !important;
+            width: auto !important;
+        }
+        #reader__status_span { color: var(--color-text) !important; }
+        #reader video { border-radius: 12px; }
     </style>
 </head>
-<body>
+<body class="fade-in">
+<div class="bg-blob blob-1"></div>
+<div class="bg-blob blob-2"></div>
 <div class="header">
     <span class="logo">VitaID Responder</span>
     <span class="link" onclick="logout()">Log out</span>
@@ -23,24 +47,29 @@
         <h2 style="margin-bottom: 1rem;">Find a patient</h2>
 
         <button class="btn-option" onclick="showMode('qr')">
-            <span class="icon">▦</span> Scan QR code
+            <span class="icon"><i data-lucide="qr-code"></i></span> Scan QR code
         </button>
         <button class="btn-option" onclick="showMode('id')">
-            <span class="icon">#</span> Enter VitaID reference
+            <span class="icon"><i data-lucide="hash"></i></span> Enter VitaID reference
         </button>
         <button class="btn-option" onclick="showMode('name')">
-            <span class="icon">☰</span> Search by name + DOB
+            <span class="icon"><i data-lucide="user-search"></i></span> Search by name + DOB
         </button>
     </div>
 
-    <!-- QR mode: not yet -->
+    <!-- QR mode -->
     <div class="card mode-toggle" id="mode-qr">
         <h2 style="margin-bottom: 1rem;">Scan QR code</h2>
-        <p style="color: var(--color-text-muted); margin-bottom: 1rem;">Camera scanning isn't available in this browser demo — enter the code shown on the patient's QR screen instead.</p>
-        <label for="qrValue">VitaID reference from QR</label>
-        <input type="text" id="qrValue" placeholder="VID-XXXXXXXXXX" autofocus />
-        <button class="btn-primary" onclick="lookupById('qrValue')">Retrieve Golden Card</button>
-        <button class="btn-option" onclick="backToOptions()" style="margin-top: 0.75rem;">← Back</button>
+        <div id="reader" style="margin-bottom: 1.5rem;"></div>
+        
+        <div id="qr-manual-entry">
+            <p style="color: var(--color-text-muted); margin-bottom: 1rem; font-size: 0.9rem;">Or enter the code manually:</p>
+            <label for="qrValue">VitaID reference</label>
+            <input type="text" id="qrValue" placeholder="VID-XXXXXXXXXX" />
+            <button class="btn-primary" onclick="lookupById('qrValue')">Retrieve Golden Card</button>
+        </div>
+        
+        <button class="btn-option" onclick="backToOptions()" style="margin-top: 1rem;">← Back</button>
     </div>
 
     <div class="card mode-toggle" id="mode-id">
@@ -68,16 +97,44 @@
 <script src="js/api.js"></script>
 <script>
     if (!localStorage.getItem('responder_token')) window.location.href = 'index.html';
+    
+    let html5QrCode;
 
-    function showMode(mode) {
+    async function showMode(mode) {
         document.getElementById('option-screen').style.display = 'none';
         document.getElementById(`mode-${mode}`).classList.add('visible');
+        
+        if (mode === 'qr') {
+            startScanner();
+        }
     }
 
-    function backToOptions() {
+    async function backToOptions() {
+        if (html5QrCode) {
+            try { await html5QrCode.stop(); } catch(e) {}
+        }
         document.querySelectorAll('.mode-toggle').forEach((el) => el.classList.remove('visible'));
         document.getElementById('option-screen').style.display = 'block';
         document.getElementById('error').classList.remove('visible');
+    }
+
+    function startScanner() {
+        html5QrCode = new Html5Qrcode("reader");
+        const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+        
+        html5QrCode.start(
+            { facingMode: "environment" }, 
+            config, 
+            (decodedText) => {
+                document.getElementById('qrValue').value = decodedText;
+                lookupById('qrValue');
+                html5QrCode.stop();
+            },
+            (errorMessage) => {
+            }
+        ).catch((err) => {
+            console.error("Unable to start scanner", err);
+        });
     }
 
     async function lookupById(inputId) {
@@ -117,6 +174,8 @@
         localStorage.removeItem('responder_token');
         window.location.href = 'index.html';
     }
+    
+    lucide.createIcons();
 </script>
 </body>
 </html>

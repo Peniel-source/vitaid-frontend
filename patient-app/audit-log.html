@@ -7,45 +7,29 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/styles.css" />
-    <style>
-        .log-item {
-            display: flex; align-items: flex-start; justify-content: space-between;
-            padding: 1rem 0; border-bottom: 1px solid var(--color-surface); gap: 1rem; flex-wrap: wrap;
-        }
-        .log-item:last-child { border-bottom: none; }
-        .log-icon {
-            width: 36px; height: 36px; border-radius: 50%; background: var(--color-surface-light);
-            display: flex; align-items: center; justify-content: center; font-size: 1rem; flex-shrink: 0;
-        }
-        .log-main { display: flex; gap: 0.85rem; flex: 1; min-width: 220px; }
-        .log-facility { font-weight: 600; }
-        .log-action { font-size: 0.85rem; color: var(--color-text-muted); margin-top: 0.1rem; }
-        .log-time { font-size: 0.82rem; color: var(--color-text-muted); white-space: nowrap; }
-        .filter-bar { display: flex; gap: 0.5rem; margin-bottom: 1.25rem; flex-wrap: wrap; }
-        .filter-btn {
-            width: auto; margin: 0; padding: 0.5rem 1rem; font-size: 0.85rem;
-            background: white; color: var(--color-primary); border: 1.5px solid var(--color-border);
-        }
-        .filter-btn.active { background: var(--color-primary); color: white; border-color: var(--color-primary); }
-    </style>
+    <script src="https://unpkg.com/lucide@latest"></script>
 </head>
-<body>
+<body class="fade-in">
+<div class="bg-blob blob-1"></div>
+<div class="bg-blob blob-2"></div>
 <div class="header">
-    <span class="logo" style="cursor: pointer;" onclick="window.location.href='dashboard.html'">VitaID</span>
+    <span class="logo" onclick="window.location.href='dashboard.html'">VitaID</span>
     <span class="link" onclick="window.location.href='dashboard.html'">← Back to dashboard</span>
 </div>
 
-<div class="dash-wrapper" style="max-width: 700px;">
-    <h1 style="font-size: 1.9rem; margin-bottom: 0.4rem;">Access history</h1>
-    <p style="color: var(--color-text-muted); margin-bottom: 1.5rem;">Every time your profile is viewed or updated, it shows up here — permanently, and it can't be edited or removed by anyone, including VitaID staff.</p>
+<div id="toast-container" class="toast-container"></div>
 
-    <div class="filter-bar">
+<div class="dash-wrapper" style="max-width: 700px;">
+    <h1 class="fade-in stagger-1" style="font-size: 1.9rem; margin-bottom: 0.4rem;">Access history</h1>
+    <p class="text-muted-sm fade-in stagger-1" style="margin-bottom: 1.5rem;">Every time your profile is viewed or updated, it shows up here — permanently, and it can't be edited or removed by anyone, including VitaID staff.</p>
+
+    <div class="filter-bar fade-in stagger-2">
         <button class="filter-btn active" data-filter="all">All</button>
         <button class="filter-btn" data-filter="RESPONDER">Responder access</button>
         <button class="filter-btn" data-filter="FACILITY">Facility updates</button>
     </div>
 
-    <div class="card">
+    <div class="card glass fade-in stagger-3">
         <div class="card-body" id="log-list">
             <p style="color: var(--color-text-muted);">Loading…</p>
         </div>
@@ -58,6 +42,21 @@
     if (!localStorage.getItem('vitaid_token')) window.location.href = 'index.html';
 
     let allLogs = [];
+
+    function showToast(message, type = 'success') {
+        const container = document.getElementById('toast-container');
+        const toast = document.createElement('div');
+        toast.className = `toast toast--${type}`;
+        const icon = type === 'success' ? 'check-circle' : 'alert-circle';
+        toast.innerHTML = `<i data-lucide="${icon}"></i><span>${message}</span>`;
+        container.appendChild(toast);
+        lucide.createIcons();
+        setTimeout(() => {
+            toast.style.opacity = '0';
+            toast.style.transform = 'translateX(20px)';
+            setTimeout(() => toast.remove(), 300);
+        }, 3000);
+    }
 
     function formatFullDate(d) {
         return new Date(d).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });

@@ -7,35 +7,28 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/styles.css" />
-    <style>
-        .consent-item {
-            display: flex; align-items: center; justify-content: space-between;
-            padding: 1rem 0; border-bottom: 1px solid var(--color-surface);
-            gap: 1rem; flex-wrap: wrap;
-        }
-        .consent-item:last-child { border-bottom: none; }
-        .consent-facility { font-weight: 600; }
-        .consent-meta { font-size: 0.82rem; color: var(--color-text-muted); margin-top: 0.15rem; }
-        .status-pill { font-size: 0.75rem; font-weight: 600; padding: 0.25rem 0.7rem; border-radius: 999px; }
-        .status-active { background: #EAF7E0; color: #2E7D32; }
-        .status-revoked { background: #F1F1F1; color: var(--color-text-muted); }
-        .btn-small { width: auto; margin: 0; padding: 0.5rem 1rem; font-size: 0.85rem; }
-        .btn-revoke { background: white; border: 1.5px solid var(--color-critical); color: var(--color-critical); }
-    </style>
+    <script src="https://unpkg.com/lucide@latest"></script>
 </head>
-<body>
+<body class="fade-in">
+<div class="bg-blob blob-1"></div>
+<div class="bg-blob blob-2"></div>
 <div class="header">
-    <span class="logo" style="cursor: pointer;" onclick="window.location.href='dashboard.html'">VitaID</span>
+    <span class="logo" onclick="window.location.href='dashboard.html'">VitaID</span>
     <span class="link" onclick="window.location.href='dashboard.html'">← Back to dashboard</span>
 </div>
 
-<div class="dash-wrapper" style="max-width: 700px;">
-    <h1 style="font-size: 1.9rem; margin-bottom: 0.4rem;">Manage consent</h1>
-    <p style="color: var(--color-text-muted); margin-bottom: 1.5rem;">Control which facilities can submit and access your health records.</p>
+<div id="toast-container" class="toast-container"></div>
+<div id="modal-overlay" class="modal-overlay" onclick="closeModal(event)">
+    <div class="modal" id="modal-content"></div>
+</div>
 
-    <div class="card card--surface">
+<div class="dash-wrapper" style="max-width: 700px;">
+    <h1 class="fade-in stagger-1" style="font-size: 1.9rem; margin-bottom: 0.4rem;">Manage consent</h1>
+    <p class="text-muted-sm fade-in stagger-1" style="margin-bottom: 1.5rem;">Control which facilities can submit and access your health records.</p>
+
+    <div class="card card--surface glass fade-in stagger-2">
         <div class="card-body">
-            <h2 style="margin-bottom: 0.75rem; font-size: 1.15rem;">Grant new consent</h2>
+            <h2 class="section-title" style="font-size: 1.15rem;">Grant new consent</h2>
             <form id="grant-form" style="display: flex; gap: 0.75rem; align-items: flex-end; flex-wrap: wrap;">
                 <div style="flex: 1; min-width: 220px;">
                     <label for="facilityId" style="margin-top: 0;">Facility ID</label>
@@ -47,7 +40,7 @@
         </div>
     </div>
 
-    <div class="card">
+    <div class="card glass fade-in stagger-3">
         <div class="card-header-strip">
             <h2>Your consent records</h2>
         </div>
@@ -63,6 +56,34 @@
     if (!localStorage.getItem('vitaid_token')) window.location.href = 'index.html';
 
     let patientId = null;
+
+    function showToast(message, type = 'success') {
+        const container = document.getElementById('toast-container');
+        const toast = document.createElement('div');
+        toast.className = `toast toast--${type}`;
+        const icon = type === 'success' ? 'check-circle' : 'alert-circle';
+        toast.innerHTML = `<i data-lucide="${icon}"></i><span>${message}</span>`;
+        container.appendChild(toast);
+        lucide.createIcons();
+        setTimeout(() => {
+            toast.style.opacity = '0';
+            toast.style.transform = 'translateX(20px)';
+            setTimeout(() => toast.remove(), 300);
+        }, 3000);
+    }
+
+    function openModal(contentHtml) {
+        const overlay = document.getElementById('modal-overlay');
+        const content = document.getElementById('modal-content');
+        content.innerHTML = contentHtml;
+        overlay.classList.add('active');
+        lucide.createIcons();
+    }
+
+    function closeModal(e) {
+        if (e && e.target !== document.getElementById('modal-overlay')) return;
+        document.getElementById('modal-overlay').classList.remove('active');
+    }
 
     function formatDate(d) {
         return new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
@@ -94,26 +115,36 @@
     }
 
     async function revoke(facilityId) {
-        if (!confirm('Revoke this facility\'s access? They will no longer be able to submit new records for you.')) return;
+        openModal(`
+            <h2 class="section-title">Revoke access?</h2>
+            <p>This facility will no longer be able to submit new records or view your Golden Card.</p>
+            <div style="display: flex; gap: 0.75rem; margin-top: 1.5rem;">
+                <button class="btn-primary" onclick="confirmRevoke('${facilityId}')">Yes, revoke</button>
+                <button class="btn-secondary" onclick="closeModal()">Cancel</button>
+            </div>
+        `);
+    }
+
+    async function confirmRevoke(facilityId) {
         try {
             await api.revokeConsent(patientId, facilityId);
+            closeModal();
+            showToast('Consent revoked.');
             loadConsents();
         } catch (err) {
-            alert(err.message);
+            showToast(err.message, 'error');
         }
     }
 
     document.getElementById('grant-form').addEventListener('submit', async (e) => {
         e.preventDefault();
-        const errorEl = document.getElementById('grant-error');
-        errorEl.classList.remove('visible');
         try {
             await api.grantConsent(patientId, document.getElementById('facilityId').value.trim());
             document.getElementById('facilityId').value = '';
+            showToast('Access granted successfully.');
             loadConsents();
         } catch (err) {
-            errorEl.textContent = err.message;
-            errorEl.classList.add('visible');
+            showToast(err.message, 'error');
         }
     });
 
@@ -122,8 +153,9 @@
             const profile = await api.getMe();
             patientId = profile.id;
             loadConsents();
+            lucide.createIcons();
         } catch (err) {
-            alert('Could not load your profile: ' + err.message);
+            showToast('Could not load profile: ' + err.message, 'error');
         }
     }
 

@@ -7,25 +7,35 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/styles.css" />
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 </head>
-<body>
+<body class="fade-in">
+<div class="bg-blob blob-1"></div>
+<div class="bg-blob blob-2"></div>
 <div class="header">
     <span class="logo">VitaID</span>
     <span class="link" onclick="handleLogout()">Log out</span>
 </div>
 
+<div id="toast-container" class="toast-container"></div>
+
+<div id="modal-overlay" class="modal-overlay" onclick="closeModal(event)">
+    <div class="modal" id="modal-content"></div>
+</div>
+
 <div class="dash-wrapper" id="app" style="display: none;">
-    <div style="display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 1.25rem; flex-wrap: wrap; gap: 0.5rem;">
+    <div class="dash-header fade-in stagger-1">
         <div>
-            <h1 style="font-size: 1.9rem;" id="patient-name">—</h1>
-            <span class="mono" style="color: var(--color-text-muted); font-size: 0.85rem;" id="vitaid-ref"></span>
+            <h1 id="patient-name">—</h1>
+            <span class="mono vitaid-ref" id="vitaid-ref"></span>
         </div>
-        <button class="btn-accent" style="width: auto; margin: 0; padding: 0.65rem 1.25rem;" onclick="window.location.href='add-record.html'">+ Add to profile</button>
+        <button class="btn-accent" onclick="window.location.href='add-record.html'">+ Add to profile</button>
     </div>
 
     <div class="dash-grid">
-        <div>
-            <div class="card">
+        <div class="fade-in stagger-2">
+            <div class="card glass">
                 <div class="card-header-strip">
                     <h2>Golden Card</h2>
                     <span class="subtitle">Emergency-ready summary</span>
@@ -61,50 +71,50 @@
             </div>
         </div>
 
-        <div>
-            <div class="card">
+        <div class="fade-in stagger-3">
+            <div class="card glass">
                 <div class="card-body">
-                    <h2 style="margin-bottom: 1rem;">Profile completeness</h2>
+                    <h2 class="section-title">Profile completeness</h2>
                     <div class="ring-stat">
                         <div class="ring-wrap">
                             <div class="ring" id="ring" style="--pct: 0;"></div>
                             <div class="ring-inner"><span id="ring-text">0%</span></div>
                         </div>
                         <div>
-                            <p style="font-size: 0.88rem; color: var(--color-text-muted);" id="completeness-hint">Loading…</p>
+                            <p class="text-muted-sm" id="completeness-hint">Loading…</p>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <div class="card">
+            <div class="card glass">
                 <div class="card-body">
                     <h2 style="margin-bottom: 0.9rem;">Quick actions</h2>
                     <div class="tile-grid">
                         <button class="tile" onclick="window.location.href='add-record.html'">
-                            <span class="tile-icon">＋</span>Add allergy or medication
+                            <i data-lucide="plus" class="tile-icon"></i>Add allergy or medication
                         </button>
                         <button class="tile" onclick="window.location.href='consent.html'">
-                            <span class="tile-icon">🔐</span>Manage consent
+                            <i data-lucide="shield-check" class="tile-icon"></i>Manage consent
                         </button>
                         <button class="tile" onclick="window.location.href='audit-log.html'">
-                            <span class="tile-icon">📋</span>Access history
+                            <i data-lucide="clipboard-list" class="tile-icon"></i>Access history
                         </button>
                         <button class="tile" onclick="showQr()">
-                            <span class="tile-icon">▦</span>Show my QR
+                            <i data-lucide="qr-code" class="tile-icon"></i>Show my QR
                         </button>
                     </div>
                 </div>
             </div>
 
-            <div class="card">
+            <div class="card glass">
                 <div class="card-body">
                     <h2 style="margin-bottom: 0.5rem;">Recent activity</h2>
                     <div id="recent-activity">
-                        <p style="color: var(--color-text-muted); font-size: 0.88rem;">Loading…</p>
+                        <p class="text-muted-sm">Loading…</p>
                     </div>
-                    <div style="margin-top: 0.75rem;">
-                        <span class="link" style="font-size: 0.85rem;" onclick="window.location.href='audit-log.html'">View full history →</span>
+                    <div class="recent-activity-footer">
+                        <span class="link text-muted-xs" onclick="window.location.href='audit-log.html'">View full history →</span>
                     </div>
                 </div>
             </div>
@@ -121,10 +131,38 @@
 
     function renderCriticalAlerts(goldenCard) {
         const el = document.getElementById('critical-alerts');
-        const severe = goldenCard.allergies.filter((a) => a.severity === 'severe');
+        const severe = (goldenCard.allergies || []).filter((a) => a.severity === 'severe');
         el.innerHTML = severe.map((a) =>
-            `<div class="critical-alert">⚠ Severe allergy: ${a.value}</div>`
-        ).join('') + (goldenCard.dnrStatus ? '<div class="critical-alert">⚠ DNR on file</div>' : '');
+            `<div class="critical-alert critical-pulse">⚠ Severe allergy: ${a.value}</div>`
+        ).join('') + (goldenCard.dnrStatus ? '<div class="critical-alert critical-pulse">⚠ DNR on file</div>' : '');
+    }
+
+    function showToast(message, type = 'success') {
+        const container = document.getElementById('toast-container');
+        const toast = document.createElement('div');
+        toast.className = `toast toast--${type}`;
+        const icon = type === 'success' ? 'check-circle' : 'alert-circle';
+        toast.innerHTML = `<i data-lucide="${icon}"></i><span>${message}</span>`;
+        container.appendChild(toast);
+        lucide.createIcons();
+        setTimeout(() => {
+            toast.style.opacity = '0';
+            toast.style.transform = 'translateX(20px)';
+            setTimeout(() => toast.remove(), 300);
+        }, 3000);
+    }
+
+    function openModal(contentHtml) {
+        const overlay = document.getElementById('modal-overlay');
+        const content = document.getElementById('modal-content');
+        content.innerHTML = contentHtml;
+        overlay.classList.add('active');
+        lucide.createIcons();
+    }
+
+    function closeModal(e) {
+        if (e && e.target !== document.getElementById('modal-overlay')) return;
+        document.getElementById('modal-overlay').classList.remove('active');
     }
 
     function renderList(elementId, items, formatFn) {
@@ -154,8 +192,12 @@
             const goldenCard = profile.profile.goldenCard;
             const pct = profile.profile.completenessScore;
 
-            document.getElementById('ring').style.setProperty('--pct', pct);
-            document.getElementById('ring-text').textContent = `${pct}%`;
+            // Trigger animation
+            setTimeout(() => {
+                document.getElementById('ring').style.setProperty('--pct', pct);
+                document.getElementById('ring-text').textContent = `${pct}%`;
+            }, 100);
+
             document.getElementById('completeness-hint').textContent =
                 pct === 100
                     ? 'Your profile is fully complete, including clinical verification.'
@@ -167,31 +209,32 @@
             document.getElementById('blood-type').textContent = goldenCard.bloodType || 'Not set';
 
             renderList('allergies-list', goldenCard.allergies, (a) => `
-          <div style="margin-top: 0.5rem;">
+          <div class="gc-list-item">
             <span class="badge">${a.source === 'CLINICAL' ? 'Verified' : 'Self-reported'}</span>
             ${a.value}${a.severity === 'severe' ? ' ⚠' : ''}
           </div>
         `);
 
             renderList('medications-list', goldenCard.currentMedications, (m) => `
-          <div style="margin-top: 0.5rem;">
+          <div class="gc-list-item">
             <span class="badge">${m.source === 'CLINICAL' ? 'Verified' : 'Self-reported'}</span>
             ${m.value}${m.dosage ? ` (${m.dosage})` : ''}
           </div>
         `);
 
             renderList('conditions-list', goldenCard.chronicConditions, (c) => `
-          <div style="margin-top: 0.5rem;">
+          <div class="gc-list-item">
             <span class="badge">${c.source === 'CLINICAL' ? 'Verified' : 'Self-reported'}</span>
             ${c.value}
           </div>
         `);
 
             renderList('contacts-list', goldenCard.emergencyContacts, (c) => `
-          <div style="margin-top: 0.5rem;">${c.name} (${c.relationship}) — ${c.phoneNumber}</div>
+          <div class="gc-list-item">${c.name} (${c.relationship}) — ${c.phoneNumber}</div>
         `);
 
             document.getElementById('app').style.display = 'block';
+            lucide.createIcons();
 
             try {
                 const logs = await api.getAuditLog();
@@ -208,17 +251,36 @@
               </div>
             `).join('');
                 }
-            } catch {
-                document.getElementById('recent-activity').innerHTML =
-                    '<p style="color: var(--color-text-muted); font-size: 0.88rem;">Could not load activity.</p>';
+            } catch (err) {
+                showToast('Could not load activity: ' + err.message, 'error');
             }
         } catch (err) {
-            alert('Could not load your profile: ' + err.message);
+            showToast('Could not load profile: ' + err.message, 'error');
         }
     }
 
     function showQr() {
-        alert('QR display coming soon — for now, share your VitaID reference: ' + localStorage.getItem('vitaid_ref'));
+        const ref = localStorage.getItem('vitaid_ref');
+        openModal(`
+            <div style="text-align: center;">
+                <h3 class="section-title" style="margin-bottom: 1.5rem;">Your VitaID Reference</h3>
+                <div style="background: white; padding: 1.5rem; border-radius: 24px; display: inline-block; margin-bottom: 1.5rem; box-shadow: 0 20px 50px rgba(0,0,0,0.3); border: 8px solid #fff;">
+                    <div id="qrcode"></div>
+                </div>
+                <div class="mono" style="font-size: 1.8rem; font-weight: 700; color: var(--color-primary); letter-spacing: 0.05em;">${ref}</div>
+                <p class="text-muted-sm" style="margin-top: 1.5rem; font-size: 1rem;">Show this to a responder or medical professional to grant access to your Golden Card.</p>
+                <button class="btn-primary" onclick="closeModal()" style="margin-top: 2.5rem; height: 3.5rem;">Close</button>
+            </div>
+        `);
+        
+        new QRCode(document.getElementById("qrcode"), {
+            text: ref,
+            width: 240,
+            height: 240,
+            colorDark : "#03363D",
+            colorLight : "#ffffff",
+            correctLevel : QRCode.CorrectLevel.H
+        });
     }
 
     function handleLogout() {

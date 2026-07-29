@@ -7,15 +7,20 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/styles.css" />
+    <script src="https://unpkg.com/lucide@latest"></script>
 </head>
-<body>
+<body class="fade-in">
+<div class="bg-blob blob-1"></div>
+<div class="bg-blob blob-2"></div>
 <div class="header">
     <span class="logo">VitaID Clinic Demo</span>
     <span class="link" onclick="logout()">Log out</span>
 </div>
 
+<div id="toast-container" class="toast-container"></div>
+
 <div class="container">
-    <div class="card">
+    <div class="card glass fade-in stagger-1">
         <h2 style="margin-bottom: 1rem;">Submit a record</h2>
 
         <label for="vitaIdRef">Patient VitaID reference</label>
@@ -34,9 +39,19 @@
 
         <div id="dynamicFields"></div>
 
-        <label style="display: flex; align-items: center; gap: 0.5rem; margin-top: 1.25rem;">
-            <input type="checkbox" id="acknowledgeInteractions" style="width: auto;" />
-            Acknowledge drug interaction warnings
+        <div id="how-it-works" style="margin-top: 2rem; padding: 1.5rem; background: rgba(159, 232, 112, 0.05); border-radius: 12px; border: 1px dashed var(--color-primary); font-size: 0.85rem; color: var(--color-text-muted);">
+            <h4 style="color: var(--color-primary); margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.5rem;">
+                <i data-lucide="help-circle" style="width: 16px;"></i> How it works
+            </h4>
+            <p>1. Enter the patient's <strong>VitaID reference</strong> (from their app or physical card).</p>
+            <p>2. Select the <strong>Resource type</strong> (FHIR standard) to send.</p>
+            <p>3. Fill in the clinical data. The backend will verify the patient exists.</p>
+            <p>4. If a medication is sent, the system automatically checks for <strong>drug-drug interactions</strong> against the patient's current profile.</p>
+        </div>
+
+        <label style="display: flex; align-items: center; gap: 0.75rem; margin-top: 1.5rem; cursor: pointer; padding: 0.5rem; border-radius: 8px; transition: background 0.2s;">
+            <input type="checkbox" id="acknowledgeInteractions" style="width: 20px; height: 20px; accent-color: var(--color-primary);" />
+            <span>Acknowledge drug interaction warnings</span>
         </label>
 
         <button class="btn-primary" onclick="submit()">Submit to VitaID</button>
@@ -51,6 +66,21 @@
 <script src="js/api.js"></script>
 <script>
     if (!localStorage.getItem('facility_token')) window.location.href = 'index.html';
+
+    function showToast(message, type = 'success') {
+        const container = document.getElementById('toast-container');
+        const toast = document.createElement('div');
+        toast.className = `toast toast--${type}`;
+        const icon = type === 'success' ? 'check-circle' : 'alert-circle';
+        toast.innerHTML = `<i data-lucide="${icon}"></i><span>${message}</span>`;
+        container.appendChild(toast);
+        lucide.createIcons();
+        setTimeout(() => {
+            toast.style.opacity = '0';
+            toast.style.transform = 'translateX(20px)';
+            setTimeout(() => toast.remove(), 300);
+        }, 3000);
+    }
 
     const fieldConfigs = {
         AllergyIntolerance: [
@@ -159,6 +189,7 @@
 
         try {
             const response = await api.ingestFhir(vitaIdRef, bundle);
+            showToast('FHIR Bundle submitted successfully.');
             renderResult(response);
         } catch (err) {
             let msg = err.message;
@@ -167,6 +198,7 @@
             }
             errorEl.innerHTML = msg;
             errorEl.classList.add('visible');
+            showToast('Submission failed.', 'error');
         }
     }
 
@@ -176,18 +208,18 @@
 
         if (response.blockedInteractions?.length > 0) {
             html += response.blockedInteractions.map((b) => `
-                <div class="gc-alert">⚠ Blocked: ${b.medication} interacts with ${b.interactions.map(i => i.withMedication).join(', ')}</div>
-                ${b.interactions.map((i) => `<div class="card">${i.description}<div class="gc-label" style="margin-top: 0.5rem;">${i.source}</div></div>`).join('')}
+                <div class="gc-alert fade-in">⚠ Blocked: ${b.medication} interacts with ${b.interactions.map(i => i.withMedication).join(', ')}</div>
+                ${b.interactions.map((i) => `<div class="card glass fade-in">${i.description}<div class="gc-label" style="margin-top: 0.5rem;">${i.source}</div></div>`).join('')}
             `).join('');
-            html += `<p style="color: var(--color-text-muted); margin-top: 0.75rem;">Check "Acknowledge drug interaction warnings" and resubmit to override.</p>`;
+            html += `<p style="color: var(--color-text-muted); margin-top: 0.75rem;" class="fade-in">Check "Acknowledge drug interaction warnings" and resubmit to override.</p>`;
         }
 
         if (response.processed?.length > 0) {
-            html += `<div class="card"><div class="gc-label">Processed</div>${response.processed.map(p => `${p.resourceType} (${p.count})`).join(', ')}</div>`;
+            html += `<div class="card glass fade-in"><div class="gc-label">Processed</div>${response.processed.map(p => `${p.resourceType} (${p.count})`).join(', ')}</div>`;
         }
 
         if (response.processed?.length === 0 && response.blockedInteractions?.length === 0) {
-            html = `<div class="card">Nothing was processed.</div>`;
+            html = `<div class="card glass fade-in">Nothing was processed.</div>`;
         }
 
         resultEl.innerHTML = html;

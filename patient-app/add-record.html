@@ -7,37 +7,22 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/styles.css" />
-    <style>
-        .tab-bar { display: flex; gap: 0.5rem; margin-bottom: 1.25rem; flex-wrap: wrap; }
-        .tab-btn {
-            width: auto; margin: 0; padding: 0.6rem 1.1rem; font-size: 0.88rem;
-            background: white; color: var(--color-primary); border: 1.5px solid var(--color-border);
-        }
-        .tab-btn.active { background: var(--color-primary); color: white; border-color: var(--color-primary); }
-        .tab-panel { display: none; }
-        .tab-panel.active { display: block; }
-        .success-banner {
-            background: #EAF7E0; border: 1.5px solid var(--color-accent); color: var(--color-primary);
-            border-radius: 8px; padding: 0.85rem 1rem; margin-bottom: 1rem; font-weight: 600; display: none;
-        }
-        .success-banner.visible { display: block; }
-        .interaction-warning {
-            background: #FDECEA; border: 1.5px solid var(--color-critical); color: var(--color-critical);
-            border-radius: 8px; padding: 1rem; margin-top: 1rem; display: none;
-        }
-        .interaction-warning.visible { display: block; }
-    </style>
+    <script src="https://unpkg.com/lucide@latest"></script>
 </head>
-<body>
+<body class="fade-in">
+<div class="bg-blob blob-1"></div>
+<div class="bg-blob blob-2"></div>
 <div class="header">
-    <span class="logo" style="cursor: pointer;" onclick="window.location.href='dashboard.html'">VitaID</span>
+    <span class="logo" onclick="window.location.href='dashboard.html'">VitaID</span>
     <span class="link" onclick="window.location.href='dashboard.html'">← Back to dashboard</span>
 </div>
 
-<div class="dash-wrapper" style="max-width: 640px;">
-    <h1 style="font-size: 1.9rem; margin-bottom: 1.5rem;">Add to your profile</h1>
+<div id="toast-container" class="toast-container"></div>
 
-    <div class="tab-bar">
+<div class="dash-wrapper" style="max-width: 640px;">
+    <h1 class="fade-in stagger-1" style="font-size: 1.9rem; margin-bottom: 1.5rem;">Add to your profile</h1>
+
+    <div class="tab-bar fade-in stagger-2">
         <button class="tab-btn active" data-tab="blood">Blood type</button>
         <button class="tab-btn" data-tab="allergy">Allergy</button>
         <button class="tab-btn" data-tab="medication">Medication</button>
@@ -45,7 +30,7 @@
         <button class="tab-btn" data-tab="contact">Emergency contact</button>
     </div>
 
-    <div class="card"><div class="card-body">
+    <div class="card glass fade-in stagger-3"><div class="card-body">
 
         <div class="success-banner" id="success-banner"></div>
 
@@ -143,6 +128,23 @@
 <script>
     if (!localStorage.getItem('vitaid_token')) window.location.href = 'index.html';
 
+    function showToast(message, type = 'success') {
+        const container = document.getElementById('toast-container');
+        const toast = document.createElement('div');
+        toast.className = `toast toast--${type}`;
+        const icon = type === 'success' ? 'check-circle' : 'alert-circle';
+        toast.innerHTML = `<i data-lucide="${icon}"></i><span>${message}</span>`;
+        container.appendChild(toast);
+        lucide.createIcons();
+        setTimeout(() => {
+            toast.style.opacity = '0';
+            toast.style.transform = 'translateX(20px)';
+            setTimeout(() => toast.remove(), 300);
+        }, 3000);
+    }
+
+    lucide.createIcons();
+
     document.querySelectorAll('.tab-btn').forEach((btn) => {
         btn.addEventListener('click', () => {
             document.querySelectorAll('.tab-btn').forEach((b) => b.classList.remove('active'));
@@ -155,9 +157,7 @@
     });
 
     function showSuccess(msg) {
-        const el = document.getElementById('success-banner');
-        el.textContent = msg;
-        el.classList.add('visible');
+        showToast(msg, 'success');
     }
 
     async function confirmNone(type) {
@@ -167,7 +167,7 @@
             if (type === 'conditions') await api.confirmNoConditions();
             showSuccess('Saved. Your profile completeness has been updated.');
         } catch (err) {
-            alert(err.message);
+            showToast(err.message, 'error');
         }
     }
 
@@ -176,7 +176,7 @@
         try {
             await api.setBloodType(document.getElementById('bloodType').value);
             showSuccess('Blood type saved.');
-        } catch (err) { alert(err.message); }
+        } catch (err) { showToast(err.message, 'error'); }
     });
 
     document.getElementById('allergy-form').addEventListener('submit', async (e) => {
@@ -189,7 +189,7 @@
             });
             showSuccess('Allergy added to your profile.');
             e.target.reset();
-        } catch (err) { alert(err.message); }
+        } catch (err) { showToast(err.message, 'error'); }
     });
 
     document.getElementById('medication-form').addEventListener('submit', async (e) => {
@@ -216,7 +216,7 @@
             showSuccess('Medication added to your profile.' + (result.interactions ? ' Note: an interaction was recorded — please discuss with your doctor.' : ''));
             e.target.reset();
             window._acknowledgeNext = false;
-        } catch (err) { alert(err.message); }
+        } catch (err) { showToast(err.message, 'error'); }
     });
 
     document.getElementById('condition-form').addEventListener('submit', async (e) => {
@@ -228,7 +228,7 @@
             });
             showSuccess('Condition added to your profile.');
             e.target.reset();
-        } catch (err) { alert(err.message); }
+        } catch (err) { showToast(err.message, 'error'); }
     });
 
     document.getElementById('contact-form').addEventListener('submit', async (e) => {
@@ -241,7 +241,7 @@
             });
             showSuccess('Emergency contact added.');
             e.target.reset();
-        } catch (err) { alert(err.message); }
+        } catch (err) { showToast(err.message, 'error'); }
     });
 </script>
 </body>

@@ -7,10 +7,14 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/styles.css" />
+    <script src="https://unpkg.com/lucide@latest"></script>
 </head>
-<body>
+<body class="fade-in">
+<div class="bg-blob blob-1"></div>
+<div class="bg-blob blob-2"></div>
+<div id="toast-container" class="toast-container"></div>
 <div class="auth-wrapper">
-    <div class="brand-panel">
+    <div class="brand-panel glass">
         <div>
             <h1>VitaID</h1>
             <p class="tagline">Your emergency health profile, always with you — even when you can't speak for yourself.</p>
@@ -24,24 +28,30 @@
     </div>
 
     <div class="form-panel">
-        <div class="form-inner">
-            <h2 style="font-size: 1.8rem;">Welcome back</h2>
-            <p style="color: var(--color-text-muted); margin-top: 0.4rem;">Log in to view and manage your profile.</p>
+        <div class="form-inner fade-in stagger-2">
+            <h2 class="section-title" style="font-size: 2rem; letter-spacing: -0.01em;">Welcome back</h2>
+            <p class="text-muted-sm" style="margin-top: 0.5rem; font-size: 1rem;">Log in to manage your emergency health profile.</p>
 
-            <form id="login-form" style="margin-top: 1.5rem;">
-                <label for="vitaIdRef">VitaID reference</label>
-                <input type="text" id="vitaIdRef" placeholder="VID-XXXXXXXXXX" required autocomplete="username" />
+            <form id="login-form" style="margin-top: 2rem;">
+                <div class="fade-in stagger-3">
+                    <label for="vitaIdRef">VitaID reference</label>
+                    <input type="text" id="vitaIdRef" placeholder="VID-XXXXXXXXXX" required autocomplete="username" />
+                </div>
 
-                <label for="pin">6-digit PIN</label>
-                <input type="password" id="pin" inputmode="numeric" maxlength="6" pattern="\d{6}" required autocomplete="current-password" />
+                <div class="fade-in stagger-4">
+                    <label for="pin">6-digit PIN</label>
+                    <input type="password" id="pin" inputmode="numeric" maxlength="6" pattern="\d{6}" required autocomplete="current-password" />
+                </div>
 
                 <div id="error" class="error-text"></div>
 
-                <button type="submit" class="btn-primary" id="submit-btn">Log in</button>
+                <button type="submit" class="btn-primary fade-in stagger-4" id="submit-btn" style="margin-top: 2rem; height: 3.5rem; font-size: 1.1rem;">
+                    Log in
+                </button>
             </form>
 
-            <p style="text-align: center; margin-top: 1.5rem;">
-                New to VitaID? <span class="link" onclick="window.location.href='register.html'">Create your profile</span>
+            <p style="text-align: center; margin-top: 2rem;" class="fade-in stagger-4">
+                New to VitaID? <span class="link" style="font-weight: 600;" onclick="window.location.href='register.html'">Create your profile</span>
             </p>
         </div>
     </div>
