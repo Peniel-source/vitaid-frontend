@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>VitaID — Create Your Profile</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+<div class="auth-wrapper">
+    <div class="brand-panel">
+        <div>
+            <h1>VitaID</h1>
+            <p class="tagline">Three minutes now could save critical time later — for a paramedic, a nurse, or someone trying to help you.</p>
+        </div>
+
+        <svg class="brand-pulse" viewBox="0 0 400 60" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M0 30 H130 L150 10 L170 50 L190 5 L210 55 L230 30 H400" stroke="#9FE870" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+
+        <p class="brand-footer-note">Consent-based · Encrypted · Built for Rwanda's emergency responders</p>
+    </div>
+
+    <div class="form-panel">
+        <div class="form-inner">
+            <h2 style="font-size: 1.8rem;">Create your VitaID</h2>
+            <p style="color: var(--color-text-muted); margin-top: 0.4rem;">A few details to get your emergency profile started.</p>
+
+            <form id="register-form" style="margin-top: 1.5rem;">
+                <label for="fullName">Full legal name</label>
+                <input type="text" id="fullName" required />
+
+                <label for="dateOfBirth">Date of birth</label>
+                <input type="date" id="dateOfBirth" required />
+
+                <label for="biologicalSex">Biological sex</label>
+                <select id="biologicalSex" required>
+                    <option value="">Select…</option>
+                    <option value="male">Male</option>
+                    <option value="female">Female</option>
+                </select>
+
+                <label for="nationalId">National ID number</label>
+                <input type="text" id="nationalId" required />
+
+                <label for="phoneNumber">Phone number</label>
+                <input type="tel" id="phoneNumber" placeholder="+250788123456" required />
+
+                <label for="pin">Choose a 6-digit PIN</label>
+                <input type="password" id="pin" inputmode="numeric" maxlength="6" pattern="\d{6}" required />
+
+                <div id="error" class="error-text"></div>
+
+                <button type="submit" class="btn-primary" id="submit-btn">Create profile</button>
+            </form>
+
+            <p style="text-align: center; margin-top: 1.5rem;">
+                Already have a profile? <span class="link" onclick="window.location.href='index.html'">Log in</span>
+            </p>
+        </div>
+    </div>
+</div>
+
+<script src="js/config.js"></script>
+<script src="js/api.js"></script>
+<script>
+    const form = document.getElementById('register-form');
+    const errorEl = document.getElementById('error');
+    const submitBtn = document.getElementById('submit-btn');
+
+    form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        errorEl.classList.remove('visible');
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Creating profile…';
+
+        const payload = {
+            fullName: document.getElementById('fullName').value.trim(),
+            dateOfBirth: document.getElementById('dateOfBirth').value,
+            biologicalSex: document.getElementById('biologicalSex').value,
+            nationalId: document.getElementById('nationalId').value.trim(),
+            phoneNumber: document.getElementById('phoneNumber').value.trim(),
+            pin: document.getElementById('pin').value.trim(),
+        };
+
+        try {
+            const result = await api.register(payload);
+            const loginResult = await api.pinLogin(result.vitaIdRef, payload.pin);
+            localStorage.setItem('vitaid_token', loginResult.accessToken);
+            localStorage.setItem('vitaid_ref', loginResult.vitaIdRef);
+            window.location.href = 'dashboard.html';
+        } catch (err) {
+            errorEl.textContent = err.message;
+            errorEl.classList.add('visible');
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Create profile';
+        }
+    });
+</script>
+</body>
+</html>

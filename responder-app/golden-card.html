@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>VitaID Responder — Golden Card</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+<div class="header">
+    <span class="logo">VitaID Responder</span>
+    <span class="link" onclick="logout()">Log out</span>
+</div>
+
+<div class="container">
+    <div id="not-found" class="not-found-box" style="display: none;">
+        <h2>No Golden Card loaded</h2>
+        <p style="color: var(--color-text-muted); margin-top: 0.5rem;">Go back and search for a patient.</p>
+        <button class="btn-primary" onclick="window.location.href='search.html'">← Back to search</button>
+    </div>
+
+    <div id="gc-content" style="display: none;">
+        <!-- Identity + freshness -->
+        <div class="card">
+            <div class="gc-label">Patient</div>
+            <div class="gc-value" id="patientName"></div>
+            <div style="margin-top: 0.4rem; color: var(--color-text-muted);" id="patientDob"></div>
+            <div id="incompleteWarning" class="error-text" style="margin-top: 0.75rem;"></div>
+            <div class="mono" style="font-size: 0.8rem; color: var(--color-text-muted); margin-top: 0.75rem;" id="lastUpdated"></div>
+        </div>
+
+        <!-- Critical alerts  -->
+        <div id="criticalAlerts"></div>
+
+        <!-- Blood type -->
+        <div class="card gc-section" style="margin-top: 0;">
+            <div class="gc-label">Blood type</div>
+            <div class="gc-value blood" id="bloodType"></div>
+        </div>
+
+        <!-- Allergies -->
+        <div class="card gc-section" style="margin-top: 0;">
+            <div class="gc-label">Allergies</div>
+            <div id="allergiesList"></div>
+        </div>
+
+        <!-- Medications -->
+        <div class="card gc-section" style="margin-top: 0;">
+            <div class="gc-label">Current medications</div>
+            <div id="medicationsList"></div>
+        </div>
+
+        <!-- Conditions -->
+        <div class="card gc-section" style="margin-top: 0;">
+            <div class="gc-label">Chronic conditions</div>
+            <div id="conditionsList"></div>
+        </div>
+
+        <!-- Organ donor -->
+        <div class="card gc-section" style="margin-top: 0;">
+            <div class="gc-label">Organ donor</div>
+            <div class="gc-value" id="organDonor"></div>
+        </div>
+
+        <!-- Emergency contacts -->
+        <div class="card gc-section" style="margin-top: 0;">
+            <div class="gc-label" style="margin-bottom: 0.75rem;">Emergency contacts</div>
+            <div id="contactsList"></div>
+        </div>
+
+        <button class="btn-option" onclick="window.location.href='search.html'">← New search</button>
+    </div>
+</div>
+
+<script src="js/config.js"></script>
+<script src="js/api.js"></script>
+<script>
+    if (!localStorage.getItem('responder_token')) window.location.href = 'index.html';
+
+    function esc(str) {
+        const div = document.createElement('div');
+        div.textContent = str ?? '';
+        return div.innerHTML;
+    }
+
+    function formatDate(iso) {
+        if (!iso) return '—';
+        return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+    }
+
+    function formatDateTime(iso) {
+        if (!iso) return '—';
+        return new Date(iso).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    }
+
+    function sourceBadge(entry) {
+        if (entry.source === 'CLINICAL') {
+            return `<span class="gc-badge">Clinical${entry.reportedBy ? ' — ' + esc(entry.reportedBy) : ''}</span>`;
+        }
+        return `<span class="gc-badge">Patient reported</span>`;
+    }
+
+    function renderCard() {
+        const raw = sessionStorage.getItem('golden_card');
+        if (!raw) {
+            document.getElementById('not-found').style.display = 'block';
+            return;
+        }
+
+        let card;
+        try {
+            card = JSON.parse(raw);
+        } catch {
+            document.getElementById('not-found').style.display = 'block';
+            return;
+        }
+
+        document.getElementById('gc-content').style.display = 'block';
+
+        document.getElementById('patientName').textContent = card.patientName || 'Unknown';
+        document.getElementById('patientDob').textContent = `DOB: ${formatDate(card.dateOfBirth)}`;
+        document.getElementById('lastUpdated').textContent = `Last updated: ${formatDateTime(card.lastUpdated)}`;
+
+        if (card.completenessIncomplete) {
+            const w = document.getElementById('incompleteWarning');
+            w.textContent = 'This profile may be missing information — treat as potentially incomplete.';
+            w.classList.add('visible');
+        }
+
+        const alertsEl = document.getElementById('criticalAlerts');
+        let alertsHtml = '';
+
+        if (card.criticalAlerts?.dnrStatus) {
+            alertsHtml += `<div class="gc-alert">⚠ DNR — Do Not Resuscitate</div>`;
+        }
+        (card.criticalAlerts?.severeAllergies || []).forEach((a) => {
+            alertsHtml += `<div class="gc-alert">⚠ Severe allergy: ${esc(a.value)}${a.reactionType ? ' — ' + esc(a.reactionType) : ''}</div>`;
+        });
+        alertsEl.innerHTML = alertsHtml;
+
+        document.getElementById('bloodType').textContent = card.bloodType || 'Not recorded';
+
+        const allergiesEl = document.getElementById('allergiesList');
+        if ((card.allergies || []).length === 0) {
+            allergiesEl.innerHTML = `<p style="color: var(--color-text-muted);">None recorded</p>`;
+        } else {
+            allergiesEl.innerHTML = card.allergies.map((a) => `
+                <div style="padding: 0.75rem 0; border-bottom: 1px solid var(--color-border);">
+                    <div class="gc-value" style="font-size: 1.05rem; ${a.severity === 'severe' ? 'color: var(--color-critical);' : ''}">${esc(a.value)}</div>
+                    ${a.reactionType ? `<div style="color: var(--color-text-muted); margin-top: 0.2rem;">Reaction: ${esc(a.reactionType)}</div>` : ''}
+                    <div style="margin-top: 0.4rem;">${sourceBadge(a)}</div>
+                </div>
+            `).join('');
+        }
+
+        const medsEl = document.getElementById('medicationsList');
+        if ((card.currentMedications || []).length === 0) {
+            medsEl.innerHTML = `<p style="color: var(--color-text-muted);">None recorded</p>`;
+        } else {
+            medsEl.innerHTML = card.currentMedications.map((m) => `
+                <div style="padding: 0.75rem 0; border-bottom: 1px solid var(--color-border);">
+                    <div class="gc-value" style="font-size: 1.05rem;">${esc(m.value)}${m.dosage ? ' — ' + esc(m.dosage) : ''}</div>
+                    ${m.frequency ? `<div style="color: var(--color-text-muted); margin-top: 0.2rem;">${esc(m.frequency)}</div>` : ''}
+                    <div style="margin-top: 0.4rem;">${sourceBadge(m)}</div>
+                </div>
+            `).join('');
+        }
+
+        const condEl = document.getElementById('conditionsList');
+        if ((card.chronicConditions || []).length === 0) {
+            condEl.innerHTML = `<p style="color: var(--color-text-muted);">None recorded</p>`;
+        } else {
+            condEl.innerHTML = card.chronicConditions.map((c) => `
+                <div style="padding: 0.75rem 0; border-bottom: 1px solid var(--color-border);">
+                    <div class="gc-value" style="font-size: 1.05rem;">${esc(c.value)}</div>
+                    <div style="color: var(--color-text-muted); margin-top: 0.2rem;">Status: ${esc(c.status)}</div>
+                    <div style="margin-top: 0.4rem;">${sourceBadge(c)}</div>
+                </div>
+            `).join('');
+        }
+
+        document.getElementById('organDonor').textContent = card.organDonorStatus ? 'Yes' : 'No / not recorded';
+
+        const contactsEl = document.getElementById('contactsList');
+        if ((card.emergencyContacts || []).length === 0) {
+            contactsEl.innerHTML = `<p style="color: var(--color-text-muted);">None recorded</p>`;
+        } else {
+            contactsEl.innerHTML = card.emergencyContacts.map((c) => `
+                <div style="margin-bottom: 0.75rem;">
+                    <div class="gc-value" style="font-size: 1.05rem;">${esc(c.name)} <span style="color: var(--color-text-muted); font-weight: 400;">(${esc(c.relationship)})</span></div>
+                    <a href="tel:${esc(c.phoneNumber)}" class="call-btn" style="display: flex; text-decoration: none; padding: 1rem; border-radius: 10px; margin-top: 0.5rem; font-weight: 700;">
+                        📞 Call ${esc(c.phoneNumber)}
+                    </a>
+                </div>
+            `).join('');
+        }
+    }
+
+    function logout() {
+        localStorage.removeItem('responder_token');
+        window.location.href = 'index.html';
+    }
+
+    renderCard();
+</script>
+</body>
+</html>

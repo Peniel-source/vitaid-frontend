@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>VitaID — Log In</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+<div class="auth-wrapper">
+    <div class="brand-panel">
+        <div>
+            <h1>VitaID</h1>
+            <p class="tagline">Your emergency health profile, always with you — even when you can't speak for yourself.</p>
+        </div>
+
+        <svg class="brand-pulse" viewBox="0 0 400 60" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M0 30 H130 L150 10 L170 50 L190 5 L210 55 L230 30 H400" stroke="#9FE870" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+
+        <p class="brand-footer-note">Consent-based · Encrypted · Built for Rwanda's emergency responders</p>
+    </div>
+
+    <div class="form-panel">
+        <div class="form-inner">
+            <h2 style="font-size: 1.8rem;">Welcome back</h2>
+            <p style="color: var(--color-text-muted); margin-top: 0.4rem;">Log in to view and manage your profile.</p>
+
+            <form id="login-form" style="margin-top: 1.5rem;">
+                <label for="vitaIdRef">VitaID reference</label>
+                <input type="text" id="vitaIdRef" placeholder="VID-XXXXXXXXXX" required autocomplete="username" />
+
+                <label for="pin">6-digit PIN</label>
+                <input type="password" id="pin" inputmode="numeric" maxlength="6" pattern="\d{6}" required autocomplete="current-password" />
+
+                <div id="error" class="error-text"></div>
+
+                <button type="submit" class="btn-primary" id="submit-btn">Log in</button>
+            </form>
+
+            <p style="text-align: center; margin-top: 1.5rem;">
+                New to VitaID? <span class="link" onclick="window.location.href='register.html'">Create your profile</span>
+            </p>
+        </div>
+    </div>
+</div>
+
+<script src="js/config.js"></script>
+<script src="js/api.js"></script>
+<script>
+    const form = document.getElementById('login-form');
+    const errorEl = document.getElementById('error');
+    const submitBtn = document.getElementById('submit-btn');
+
+    if (localStorage.getItem('vitaid_token')) {
+        window.location.href = 'dashboard.html';
+    }
+
+    form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        errorEl.classList.remove('visible');
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Logging in…';
+
+        const vitaIdRef = document.getElementById('vitaIdRef').value.trim().toUpperCase();
+        const pin = document.getElementById('pin').value.trim();
+
+        try {
+            const result = await api.pinLogin(vitaIdRef, pin);
+            localStorage.setItem('vitaid_token', result.accessToken);
+            localStorage.setItem('vitaid_ref', result.vitaIdRef);
+            window.location.href = 'dashboard.html';
+        } catch (err) {
+            errorEl.textContent = err.message;
+            errorEl.classList.add('visible');
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Log in';
+        }
+    });
+</script>
+</body>
+</html>

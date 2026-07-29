@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>VitaID Clinic Demo — Submit Record</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+<div class="header">
+    <span class="logo">VitaID Clinic Demo</span>
+    <span class="link" onclick="logout()">Log out</span>
+</div>
+
+<div class="container">
+    <div class="card">
+        <h2 style="margin-bottom: 1rem;">Submit a record</h2>
+
+        <label for="vitaIdRef">Patient VitaID reference</label>
+        <input type="text" id="vitaIdRef" value="VID-JXCPOZ1G8B" />
+
+        <label for="resourceType">Resource type</label>
+        <select id="resourceType" onchange="renderFields()">
+            <option value="AllergyIntolerance">Allergy</option>
+            <option value="Condition">Condition</option>
+            <option value="MedicationRequest">Medication</option>
+            <option value="Observation">Observation</option>
+            <option value="DiagnosticReport">Diagnostic report</option>
+            <option value="Encounter">Encounter</option>
+            <option value="Patient">Patient (minimal)</option>
+        </select>
+
+        <div id="dynamicFields"></div>
+
+        <label style="display: flex; align-items: center; gap: 0.5rem; margin-top: 1.25rem;">
+            <input type="checkbox" id="acknowledgeInteractions" style="width: auto;" />
+            Acknowledge drug interaction warnings
+        </label>
+
+        <button class="btn-primary" onclick="submit()">Submit to VitaID</button>
+
+        <div id="error" class="error-text"></div>
+    </div>
+
+    <div id="result" style="display: none;"></div>
+</div>
+
+<script src="js/config.js"></script>
+<script src="js/api.js"></script>
+<script>
+    if (!localStorage.getItem('facility_token')) window.location.href = 'index.html';
+
+    const fieldConfigs = {
+        AllergyIntolerance: [
+            { id: 'code', label: 'Allergen', placeholder: 'Peanuts' },
+            { id: 'severity', label: 'Severity', placeholder: 'severe' },
+            { id: 'reaction', label: 'Reaction', placeholder: 'Anaphylaxis' },
+        ],
+        Condition: [
+            { id: 'code', label: 'Condition', placeholder: 'Type 2 Diabetes' },
+            { id: 'status', label: 'Clinical status', placeholder: 'active' },
+        ],
+        MedicationRequest: [
+            { id: 'medication', label: 'Medication', placeholder: 'Aspirin' },
+            { id: 'dosage', label: 'Dosage instruction', placeholder: '81mg daily' },
+        ],
+        Observation: [
+            { id: 'status', label: 'Status', placeholder: 'final' },
+            { id: 'code', label: 'Observation name', placeholder: 'Heart Rate' },
+            { id: 'value', label: 'Value', placeholder: '72 bpm' },
+        ],
+        DiagnosticReport: [
+            { id: 'status', label: 'Status', placeholder: 'final' },
+            { id: 'code', label: 'Report name', placeholder: 'Blood Panel' },
+            { id: 'conclusion', label: 'Conclusion', placeholder: 'Normal' },
+        ],
+        Encounter: [
+            { id: 'status', label: 'Status', placeholder: 'finished' },
+            { id: 'class', label: 'Class code', placeholder: 'AMB' },
+        ],
+        Patient: [],
+    };
+
+    function renderFields() {
+        const type = document.getElementById('resourceType').value;
+        const container = document.getElementById('dynamicFields');
+        container.innerHTML = fieldConfigs[type].map((f) => `
+            <label for="f_${f.id}">${f.label}</label>
+            <input type="text" id="f_${f.id}" placeholder="${f.placeholder}" />
+        `).join('');
+    }
+
+    function buildResource() {
+        const type = document.getElementById('resourceType').value;
+        const val = (id) => document.getElementById(`f_${id}`)?.value.trim() || '';
+
+        switch (type) {
+            case 'AllergyIntolerance':
+                return {
+                    resourceType: 'AllergyIntolerance',
+                    code: { text: val('code') },
+                    reaction: [{ severity: val('severity'), manifestation: [{ text: val('reaction') }] }],
+                };
+            case 'Condition':
+                return {
+                    resourceType: 'Condition',
+                    code: { text: val('code') },
+                    clinicalStatus: { coding: [{ code: val('status') }] },
+                };
+            case 'MedicationRequest':
+                return {
+                    resourceType: 'MedicationRequest',
+                    medicationCodeableConcept: { text: val('medication') },
+                    dosageInstruction: [{ text: val('dosage') }],
+                };
+            case 'Observation':
+                return {
+                    resourceType: 'Observation',
+                    status: val('status'),
+                    code: { text: val('code') },
+                    valueString: val('value'),
+                };
+            case 'DiagnosticReport':
+                return {
+                    resourceType: 'DiagnosticReport',
+                    status: val('status'),
+                    code: { text: val('code') },
+                    conclusion: val('conclusion'),
+                };
+            case 'Encounter':
+                return {
+                    resourceType: 'Encounter',
+                    status: val('status'),
+                    class: { code: val('class') },
+                };
+            case 'Patient':
+                return { resourceType: 'Patient' };
+        }
+    }
+
+    async function submit() {
+        const errorEl = document.getElementById('error');
+        const resultEl = document.getElementById('result');
+        errorEl.classList.remove('visible');
+        resultEl.style.display = 'none';
+
+        const vitaIdRef = document.getElementById('vitaIdRef').value.trim();
+        const acknowledgeInteractions = document.getElementById('acknowledgeInteractions').checked;
+        const resource = buildResource();
+
+        const bundle = {
+            resourceType: 'Bundle',
+            type: 'collection',
+            acknowledgeInteractions,
+            entry: [{ resource }],
+        };
+
+        try {
+            const response = await api.ingestFhir(vitaIdRef, bundle);
+            renderResult(response);
+        } catch (err) {
+            let msg = err.message;
+            if (err.details) {
+                msg += '<br>' + err.details.map((e) => `${e.resourceType}: ${e.errors.join(', ')}`).join('<br>');
+            }
+            errorEl.innerHTML = msg;
+            errorEl.classList.add('visible');
+        }
+    }
+
+    function renderResult(response) {
+        const resultEl = document.getElementById('result');
+        let html = '';
+
+        if (response.blockedInteractions?.length > 0) {
+            html += response.blockedInteractions.map((b) => `
+                <div class="gc-alert">⚠ Blocked: ${b.medication} interacts with ${b.interactions.map(i => i.withMedication).join(', ')}</div>
+                ${b.interactions.map((i) => `<div class="card">${i.description}<div class="gc-label" style="margin-top: 0.5rem;">${i.source}</div></div>`).join('')}
+            `).join('');
+            html += `<p style="color: var(--color-text-muted); margin-top: 0.75rem;">Check "Acknowledge drug interaction warnings" and resubmit to override.</p>`;
+        }
+
+        if (response.processed?.length > 0) {
+            html += `<div class="card"><div class="gc-label">Processed</div>${response.processed.map(p => `${p.resourceType} (${p.count})`).join(', ')}</div>`;
+        }
+
+        if (response.processed?.length === 0 && response.blockedInteractions?.length === 0) {
+            html = `<div class="card">Nothing was processed.</div>`;
+        }
+
+        resultEl.innerHTML = html;
+        resultEl.style.display = 'block';
+    }
+
+    function logout() {
+        localStorage.removeItem('facility_token');
+        window.location.href = 'index.html';
+    }
+
+    renderFields();
+</script>
+</body>
+</html>

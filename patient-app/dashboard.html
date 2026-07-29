@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>VitaID — Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+<div class="header">
+    <span class="logo">VitaID</span>
+    <span class="link" onclick="handleLogout()">Log out</span>
+</div>
+
+<div class="dash-wrapper" id="app" style="display: none;">
+    <div style="display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 1.25rem; flex-wrap: wrap; gap: 0.5rem;">
+        <div>
+            <h1 style="font-size: 1.9rem;" id="patient-name">—</h1>
+            <span class="mono" style="color: var(--color-text-muted); font-size: 0.85rem;" id="vitaid-ref"></span>
+        </div>
+        <button class="btn-accent" style="width: auto; margin: 0; padding: 0.65rem 1.25rem;" onclick="window.location.href='add-record.html'">+ Add to profile</button>
+    </div>
+
+    <div class="dash-grid">
+        <div>
+            <div class="card">
+                <div class="card-header-strip">
+                    <h2>Golden Card</h2>
+                    <span class="subtitle">Emergency-ready summary</span>
+                </div>
+                <div class="card-body">
+                    <div id="critical-alerts"></div>
+
+                    <div class="gc-field">
+                        <div class="gc-label">Blood type</div>
+                        <div class="gc-value" id="blood-type">—</div>
+                    </div>
+
+                    <div class="gc-field">
+                        <div class="gc-label">Allergies</div>
+                        <div id="allergies-list"></div>
+                    </div>
+
+                    <div class="gc-field">
+                        <div class="gc-label">Current medications</div>
+                        <div id="medications-list"></div>
+                    </div>
+
+                    <div class="gc-field">
+                        <div class="gc-label">Chronic conditions</div>
+                        <div id="conditions-list"></div>
+                    </div>
+
+                    <div class="gc-field">
+                        <div class="gc-label">Emergency contact</div>
+                        <div id="contacts-list"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div>
+            <div class="card">
+                <div class="card-body">
+                    <h2 style="margin-bottom: 1rem;">Profile completeness</h2>
+                    <div class="ring-stat">
+                        <div class="ring-wrap">
+                            <div class="ring" id="ring" style="--pct: 0;"></div>
+                            <div class="ring-inner"><span id="ring-text">0%</span></div>
+                        </div>
+                        <div>
+                            <p style="font-size: 0.88rem; color: var(--color-text-muted);" id="completeness-hint">Loading…</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-body">
+                    <h2 style="margin-bottom: 0.9rem;">Quick actions</h2>
+                    <div class="tile-grid">
+                        <button class="tile" onclick="window.location.href='add-record.html'">
+                            <span class="tile-icon">＋</span>Add allergy or medication
+                        </button>
+                        <button class="tile" onclick="window.location.href='consent.html'">
+                            <span class="tile-icon">🔐</span>Manage consent
+                        </button>
+                        <button class="tile" onclick="window.location.href='audit-log.html'">
+                            <span class="tile-icon">📋</span>Access history
+                        </button>
+                        <button class="tile" onclick="showQr()">
+                            <span class="tile-icon">▦</span>Show my QR
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-body">
+                    <h2 style="margin-bottom: 0.5rem;">Recent activity</h2>
+                    <div id="recent-activity">
+                        <p style="color: var(--color-text-muted); font-size: 0.88rem;">Loading…</p>
+                    </div>
+                    <div style="margin-top: 0.75rem;">
+                        <span class="link" style="font-size: 0.85rem;" onclick="window.location.href='audit-log.html'">View full history →</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="js/config.js"></script>
+<script src="js/api.js"></script>
+<script>
+    if (!localStorage.getItem('vitaid_token')) {
+        window.location.href = 'index.html';
+    }
+
+    function renderCriticalAlerts(goldenCard) {
+        const el = document.getElementById('critical-alerts');
+        const severe = goldenCard.allergies.filter((a) => a.severity === 'severe');
+        el.innerHTML = severe.map((a) =>
+            `<div class="critical-alert">⚠ Severe allergy: ${a.value}</div>`
+        ).join('') + (goldenCard.dnrStatus ? '<div class="critical-alert">⚠ DNR on file</div>' : '');
+    }
+
+    function renderList(elementId, items, formatFn) {
+        const el = document.getElementById(elementId);
+        if (items.length === 0) {
+            el.innerHTML = '<p style="color: var(--color-text-muted); font-size: 0.9rem; margin-top: 0.3rem;">None recorded</p>';
+            return;
+        }
+        el.innerHTML = items.map(formatFn).join('');
+    }
+
+    function timeAgo(dateStr) {
+        const diff = Date.now() - new Date(dateStr).getTime();
+        const mins = Math.floor(diff / 60000);
+        if (mins < 60) return `${mins}m ago`;
+        const hours = Math.floor(mins / 60);
+        if (hours < 24) return `${hours}h ago`;
+        return `${Math.floor(hours / 24)}d ago`;
+    }
+
+    async function loadDashboard() {
+        try {
+            const profile = await api.getMe();
+            document.getElementById('patient-name').textContent = profile.fullName;
+            document.getElementById('vitaid-ref').textContent = profile.vitaIdRef;
+
+            const goldenCard = profile.profile.goldenCard;
+            const pct = profile.profile.completenessScore;
+
+            document.getElementById('ring').style.setProperty('--pct', pct);
+            document.getElementById('ring-text').textContent = `${pct}%`;
+            document.getElementById('completeness-hint').textContent =
+                pct === 100
+                    ? 'Your profile is fully complete, including clinical verification.'
+                    : pct >= 85
+                        ? 'Great progress. Full completion needs a clinic visit to verify your data.'
+                        : 'Add more details so responders have the fullest picture in an emergency.';
+
+            renderCriticalAlerts(goldenCard);
+            document.getElementById('blood-type').textContent = goldenCard.bloodType || 'Not set';
+
+            renderList('allergies-list', goldenCard.allergies, (a) => `
+          <div style="margin-top: 0.5rem;">
+            <span class="badge">${a.source === 'CLINICAL' ? 'Verified' : 'Self-reported'}</span>
+            ${a.value}${a.severity === 'severe' ? ' ⚠' : ''}
+          </div>
+        `);
+
+            renderList('medications-list', goldenCard.currentMedications, (m) => `
+          <div style="margin-top: 0.5rem;">
+            <span class="badge">${m.source === 'CLINICAL' ? 'Verified' : 'Self-reported'}</span>
+            ${m.value}${m.dosage ? ` (${m.dosage})` : ''}
+          </div>
+        `);
+
+            renderList('conditions-list', goldenCard.chronicConditions, (c) => `
+          <div style="margin-top: 0.5rem;">
+            <span class="badge">${c.source === 'CLINICAL' ? 'Verified' : 'Self-reported'}</span>
+            ${c.value}
+          </div>
+        `);
+
+            renderList('contacts-list', goldenCard.emergencyContacts, (c) => `
+          <div style="margin-top: 0.5rem;">${c.name} (${c.relationship}) — ${c.phoneNumber}</div>
+        `);
+
+            document.getElementById('app').style.display = 'block';
+
+            try {
+                const logs = await api.getAuditLog();
+                const recent = logs.slice(0, 4);
+                const activityEl = document.getElementById('recent-activity');
+                if (recent.length === 0) {
+                    activityEl.innerHTML = '<p style="color: var(--color-text-muted); font-size: 0.88rem;">No activity yet.</p>';
+                } else {
+                    activityEl.innerHTML = recent.map((log) => `
+              <div class="activity-item">
+                <div class="who">${log.institutionName}</div>
+                <div>${log.actionType.replace(/_/g, ' ').toLowerCase()}</div>
+                <div class="when">${timeAgo(log.timestamp)}</div>
+              </div>
+            `).join('');
+                }
+            } catch {
+                document.getElementById('recent-activity').innerHTML =
+                    '<p style="color: var(--color-text-muted); font-size: 0.88rem;">Could not load activity.</p>';
+            }
+        } catch (err) {
+            alert('Could not load your profile: ' + err.message);
+        }
+    }
+
+    function showQr() {
+        alert('QR display coming soon — for now, share your VitaID reference: ' + localStorage.getItem('vitaid_ref'));
+    }
+
+    function handleLogout() {
+        api.logout().finally(() => {
+            localStorage.removeItem('vitaid_token');
+            localStorage.removeItem('vitaid_ref');
+            window.location.href = 'index.html';
+        });
+    }
+
+    loadDashboard();
+</script>
+</body>
+</html>

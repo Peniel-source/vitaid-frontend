@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>VitaID — Manage Consent</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/styles.css" />
+    <style>
+        .consent-item {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 1rem 0; border-bottom: 1px solid var(--color-surface);
+            gap: 1rem; flex-wrap: wrap;
+        }
+        .consent-item:last-child { border-bottom: none; }
+        .consent-facility { font-weight: 600; }
+        .consent-meta { font-size: 0.82rem; color: var(--color-text-muted); margin-top: 0.15rem; }
+        .status-pill { font-size: 0.75rem; font-weight: 600; padding: 0.25rem 0.7rem; border-radius: 999px; }
+        .status-active { background: #EAF7E0; color: #2E7D32; }
+        .status-revoked { background: #F1F1F1; color: var(--color-text-muted); }
+        .btn-small { width: auto; margin: 0; padding: 0.5rem 1rem; font-size: 0.85rem; }
+        .btn-revoke { background: white; border: 1.5px solid var(--color-critical); color: var(--color-critical); }
+    </style>
+</head>
+<body>
+<div class="header">
+    <span class="logo" style="cursor: pointer;" onclick="window.location.href='dashboard.html'">VitaID</span>
+    <span class="link" onclick="window.location.href='dashboard.html'">← Back to dashboard</span>
+</div>
+
+<div class="dash-wrapper" style="max-width: 700px;">
+    <h1 style="font-size: 1.9rem; margin-bottom: 0.4rem;">Manage consent</h1>
+    <p style="color: var(--color-text-muted); margin-bottom: 1.5rem;">Control which facilities can submit and access your health records.</p>
+
+    <div class="card card--surface">
+        <div class="card-body">
+            <h2 style="margin-bottom: 0.75rem; font-size: 1.15rem;">Grant new consent</h2>
+            <form id="grant-form" style="display: flex; gap: 0.75rem; align-items: flex-end; flex-wrap: wrap;">
+                <div style="flex: 1; min-width: 220px;">
+                    <label for="facilityId" style="margin-top: 0;">Facility ID</label>
+                    <input type="text" id="facilityId" placeholder="Provided by the clinic/hospital" required />
+                </div>
+                <button type="submit" class="btn-primary btn-small" style="margin-top: 0;">Grant access</button>
+            </form>
+            <div id="grant-error" class="error-text"></div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header-strip">
+            <h2>Your consent records</h2>
+        </div>
+        <div class="card-body" id="consent-list">
+            <p style="color: var(--color-text-muted);">Loading…</p>
+        </div>
+    </div>
+</div>
+
+<script src="js/config.js"></script>
+<script src="js/api.js"></script>
+<script>
+    if (!localStorage.getItem('vitaid_token')) window.location.href = 'index.html';
+
+    let patientId = null;
+
+    function formatDate(d) {
+        return new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+    }
+
+    async function loadConsents() {
+        const listEl = document.getElementById('consent-list');
+        try {
+            const consents = await api.listConsents(patientId);
+            if (consents.length === 0) {
+                listEl.innerHTML = '<p style="color: var(--color-text-muted);">No consent records yet. Grant access to a facility above once they give you their facility ID.</p>';
+                return;
+            }
+            listEl.innerHTML = consents.map((c) => `
+          <div class="consent-item">
+            <div>
+              <div class="consent-facility">${c.facility.name}</div>
+              <div class="consent-meta">${c.facility.facilityType} · granted ${formatDate(c.grantedAt)}${c.revokedAt ? ` · revoked ${formatDate(c.revokedAt)}` : ''}</div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 0.75rem;">
+              <span class="status-pill ${c.isActive ? 'status-active' : 'status-revoked'}">${c.isActive ? 'Active' : 'Revoked'}</span>
+              ${c.isActive ? `<button class="btn-small btn-revoke" onclick="revoke('${c.facilityId}')">Revoke</button>` : ''}
+            </div>
+          </div>
+        `).join('');
+        } catch (err) {
+            listEl.innerHTML = `<p style="color: var(--color-critical);">${err.message}</p>`;
+        }
+    }
+
+    async function revoke(facilityId) {
+        if (!confirm('Revoke this facility\'s access? They will no longer be able to submit new records for you.')) return;
+        try {
+            await api.revokeConsent(patientId, facilityId);
+            loadConsents();
+        } catch (err) {
+            alert(err.message);
+        }
+    }
+
+    document.getElementById('grant-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const errorEl = document.getElementById('grant-error');
+        errorEl.classList.remove('visible');
+        try {
+            await api.grantConsent(patientId, document.getElementById('facilityId').value.trim());
+            document.getElementById('facilityId').value = '';
+            loadConsents();
+        } catch (err) {
+            errorEl.textContent = err.message;
+            errorEl.classList.add('visible');
+        }
+    });
+
+    async function init() {
+        try {
+            const profile = await api.getMe();
+            patientId = profile.id;
+            loadConsents();
+        } catch (err) {
+            alert('Could not load your profile: ' + err.message);
+        }
+    }
+
+    init();
+</script>
+</body>
+</html>

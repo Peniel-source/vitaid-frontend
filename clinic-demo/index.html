@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>VitaID Clinic Demo — Login</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+<div class="header">
+    <span class="logo">VitaID Clinic Demo</span>
+</div>
+
+<div class="container">
+    <div class="card">
+        <h2 style="margin-bottom: 1rem;">Facility login</h2>
+        <p style="color: var(--color-text-muted); margin-bottom: 1rem;">Pre-filled with the test facility (Kigali Test Clinic). Use "Issue new credential" if the secret has expired or rotated.</p>
+
+        <label for="clientId">Client ID</label>
+        <input type="text" id="clientId" value="05bbb786-c98b-4e16-b88f-f267caba2db7" />
+
+        <label for="clientSecret">Client Secret</label>
+        <input type="text" id="clientSecret" placeholder="Paste secret here" />
+
+        <button class="btn-primary" onclick="login()">Log in</button>
+        <button class="btn-option" onclick="issueCredential()" style="margin-top: 0.75rem;">Issue new credential for this facility</button>
+
+        <div id="error" class="error-text"></div>
+        <div id="issued" class="card" style="display: none; margin-top: 1rem; background: var(--color-surface-light);">
+            <div class="gc-label">New credential issued (shown once)</div>
+            <div class="mono" style="margin-top: 0.5rem; word-break: break-all;" id="issuedSecret"></div>
+        </div>
+    </div>
+</div>
+
+<script src="js/config.js"></script>
+<script src="js/api.js"></script>
+<script>
+    async function login() {
+        const errorEl = document.getElementById('error');
+        errorEl.classList.remove('visible');
+        const clientId = document.getElementById('clientId').value.trim();
+        const clientSecret = document.getElementById('clientSecret').value.trim();
+
+        try {
+            const result = await api.login(clientId, clientSecret);
+            localStorage.setItem('facility_token', result.accessToken);
+            window.location.href = 'demo.html';
+        } catch (err) {
+            errorEl.textContent = err.message;
+            errorEl.classList.add('visible');
+        }
+    }
+
+    async function issueCredential() {
+        const errorEl = document.getElementById('error');
+        errorEl.classList.remove('visible');
+        const clientId = document.getElementById('clientId').value.trim();
+
+        try {
+            const result = await api.issueCredential(clientId);
+            document.getElementById('clientSecret').value = result.clientSecret;
+            document.getElementById('issuedSecret').textContent = result.clientSecret;
+            document.getElementById('issued').style.display = 'block';
+        } catch (err) {
+            errorEl.textContent = err.message;
+            errorEl.classList.add('visible');
+        }
+    }
+</script>
+</body>
+</html>

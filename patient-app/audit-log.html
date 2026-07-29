@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>VitaID — Access History</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/styles.css" />
+    <style>
+        .log-item {
+            display: flex; align-items: flex-start; justify-content: space-between;
+            padding: 1rem 0; border-bottom: 1px solid var(--color-surface); gap: 1rem; flex-wrap: wrap;
+        }
+        .log-item:last-child { border-bottom: none; }
+        .log-icon {
+            width: 36px; height: 36px; border-radius: 50%; background: var(--color-surface-light);
+            display: flex; align-items: center; justify-content: center; font-size: 1rem; flex-shrink: 0;
+        }
+        .log-main { display: flex; gap: 0.85rem; flex: 1; min-width: 220px; }
+        .log-facility { font-weight: 600; }
+        .log-action { font-size: 0.85rem; color: var(--color-text-muted); margin-top: 0.1rem; }
+        .log-time { font-size: 0.82rem; color: var(--color-text-muted); white-space: nowrap; }
+        .filter-bar { display: flex; gap: 0.5rem; margin-bottom: 1.25rem; flex-wrap: wrap; }
+        .filter-btn {
+            width: auto; margin: 0; padding: 0.5rem 1rem; font-size: 0.85rem;
+            background: white; color: var(--color-primary); border: 1.5px solid var(--color-border);
+        }
+        .filter-btn.active { background: var(--color-primary); color: white; border-color: var(--color-primary); }
+    </style>
+</head>
+<body>
+<div class="header">
+    <span class="logo" style="cursor: pointer;" onclick="window.location.href='dashboard.html'">VitaID</span>
+    <span class="link" onclick="window.location.href='dashboard.html'">← Back to dashboard</span>
+</div>
+
+<div class="dash-wrapper" style="max-width: 700px;">
+    <h1 style="font-size: 1.9rem; margin-bottom: 0.4rem;">Access history</h1>
+    <p style="color: var(--color-text-muted); margin-bottom: 1.5rem;">Every time your profile is viewed or updated, it shows up here — permanently, and it can't be edited or removed by anyone, including VitaID staff.</p>
+
+    <div class="filter-bar">
+        <button class="filter-btn active" data-filter="all">All</button>
+        <button class="filter-btn" data-filter="RESPONDER">Responder access</button>
+        <button class="filter-btn" data-filter="FACILITY">Facility updates</button>
+    </div>
+
+    <div class="card">
+        <div class="card-body" id="log-list">
+            <p style="color: var(--color-text-muted);">Loading…</p>
+        </div>
+    </div>
+</div>
+
+<script src="js/config.js"></script>
+<script src="js/api.js"></script>
+<script>
+    if (!localStorage.getItem('vitaid_token')) window.location.href = 'index.html';
+
+    let allLogs = [];
+
+    function formatFullDate(d) {
+        return new Date(d).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    }
+
+    function iconFor(actionType) {
+        if (actionType.includes('RETRIEVED')) return '👁';
+        if (actionType.includes('NOT_FOUND')) return '❓';
+        if (actionType.includes('SUCCESS')) return '✓';
+        if (actionType.includes('BLOCKED')) return '🚫';
+        return '•';
+    }
+
+    function describeAction(log) {
+        const map = {
+            GOLDEN_CARD_RETRIEVED: 'Golden Card viewed by a responder',
+            GOLDEN_CARD_NOT_FOUND: 'A responder searched but your profile wasn\'t matched',
+            FHIR_INGESTION_SUCCESS: 'Submitted new health records',
+            FHIR_INGESTION_BLOCKED_NO_CONSENT: 'Attempted to submit records — blocked, no consent on file',
+        };
+        return map[log.actionType] || log.actionType.replace(/_/g, ' ').toLowerCase();
+    }
+
+    function render(logs) {
+        const listEl = document.getElementById('log-list');
+        if (logs.length === 0) {
+            listEl.innerHTML = '<p style="color: var(--color-text-muted);">No matching activity.</p>';
+            return;
+        }
+        listEl.innerHTML = logs.map((log) => `
+        <div class="log-item">
+          <div class="log-main">
+            <div class="log-icon">${iconFor(log.actionType)}</div>
+            <div>
+              <div class="log-facility">${log.institutionName}</div>
+              <div class="log-action">${describeAction(log)}</div>
+            </div>
+          </div>
+          <div class="log-time">${formatFullDate(log.timestamp)}</div>
+        </div>
+      `).join('');
+    }
+
+    document.querySelectorAll('.filter-btn').forEach((btn) => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.filter-btn').forEach((b) => b.classList.remove('active'));
+            btn.classList.add('active');
+            const filter = btn.dataset.filter;
+            render(filter === 'all' ? allLogs : allLogs.filter((l) => l.accessorRole === filter));
+        });
+    });
+
+    async function init() {
+        try {
+            allLogs = await api.getAuditLog();
+            render(allLogs);
+        } catch (err) {
+            document.getElementById('log-list').innerHTML = `<p style="color: var(--color-critical);">${err.message}</p>`;
+        }
+    }
+
+    init();
+</script>
+</body>
+</html>

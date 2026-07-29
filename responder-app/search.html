@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>VitaID Responder — Search</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/styles.css" />
+    <style>
+        .mode-toggle { display: none; }
+        .mode-toggle.visible { display: block; }
+    </style>
+</head>
+<body>
+<div class="header">
+    <span class="logo">VitaID Responder</span>
+    <span class="link" onclick="logout()">Log out</span>
+</div>
+
+<div class="container">
+    <div class="card" id="option-screen">
+        <h2 style="margin-bottom: 1rem;">Find a patient</h2>
+
+        <button class="btn-option" onclick="showMode('qr')">
+            <span class="icon">▦</span> Scan QR code
+        </button>
+        <button class="btn-option" onclick="showMode('id')">
+            <span class="icon">#</span> Enter VitaID reference
+        </button>
+        <button class="btn-option" onclick="showMode('name')">
+            <span class="icon">☰</span> Search by name + DOB
+        </button>
+    </div>
+
+    <!-- QR mode: not yet -->
+    <div class="card mode-toggle" id="mode-qr">
+        <h2 style="margin-bottom: 1rem;">Scan QR code</h2>
+        <p style="color: var(--color-text-muted); margin-bottom: 1rem;">Camera scanning isn't available in this browser demo — enter the code shown on the patient's QR screen instead.</p>
+        <label for="qrValue">VitaID reference from QR</label>
+        <input type="text" id="qrValue" placeholder="VID-XXXXXXXXXX" autofocus />
+        <button class="btn-primary" onclick="lookupById('qrValue')">Retrieve Golden Card</button>
+        <button class="btn-option" onclick="backToOptions()" style="margin-top: 0.75rem;">← Back</button>
+    </div>
+
+    <div class="card mode-toggle" id="mode-id">
+        <h2 style="margin-bottom: 1rem;">Enter VitaID reference</h2>
+        <label for="idValue">VitaID reference</label>
+        <input type="text" id="idValue" placeholder="VID-XXXXXXXXXX" autofocus />
+        <button class="btn-primary" onclick="lookupById('idValue')">Retrieve Golden Card</button>
+        <button class="btn-option" onclick="backToOptions()" style="margin-top: 0.75rem;">← Back</button>
+    </div>
+
+    <div class="card mode-toggle" id="mode-name">
+        <h2 style="margin-bottom: 1rem;">Search by name + date of birth</h2>
+        <label for="lastName">Last name</label>
+        <input type="text" id="lastName" autofocus />
+        <label for="dob">Date of birth</label>
+        <input type="date" id="dob" />
+        <button class="btn-primary" onclick="lookupByNameDob()">Retrieve Golden Card</button>
+        <button class="btn-option" onclick="backToOptions()" style="margin-top: 0.75rem;">← Back</button>
+    </div>
+
+    <div id="error" class="error-text"></div>
+</div>
+
+<script src="js/config.js"></script>
+<script src="js/api.js"></script>
+<script>
+    if (!localStorage.getItem('responder_token')) window.location.href = 'index.html';
+
+    function showMode(mode) {
+        document.getElementById('option-screen').style.display = 'none';
+        document.getElementById(`mode-${mode}`).classList.add('visible');
+    }
+
+    function backToOptions() {
+        document.querySelectorAll('.mode-toggle').forEach((el) => el.classList.remove('visible'));
+        document.getElementById('option-screen').style.display = 'block';
+        document.getElementById('error').classList.remove('visible');
+    }
+
+    async function lookupById(inputId) {
+        const errorEl = document.getElementById('error');
+        errorEl.classList.remove('visible');
+        const vitaIdRef = document.getElementById(inputId).value.trim().toUpperCase();
+        if (!vitaIdRef) return;
+
+        try {
+            const card = await api.getByVitaIdRef(vitaIdRef);
+            sessionStorage.setItem('golden_card', JSON.stringify(card));
+            window.location.href = 'golden-card.html';
+        } catch (err) {
+            errorEl.textContent = err.message;
+            errorEl.classList.add('visible');
+        }
+    }
+
+    async function lookupByNameDob() {
+        const errorEl = document.getElementById('error');
+        errorEl.classList.remove('visible');
+        const lastName = document.getElementById('lastName').value.trim();
+        const dob = document.getElementById('dob').value;
+        if (!lastName || !dob) return;
+
+        try {
+            const card = await api.searchByNameDob(lastName, dob);
+            sessionStorage.setItem('golden_card', JSON.stringify(card));
+            window.location.href = 'golden-card.html';
+        } catch (err) {
+            errorEl.textContent = err.message;
+            errorEl.classList.add('visible');
+        }
+    }
+
+    function logout() {
+        localStorage.removeItem('responder_token');
+        window.location.href = 'index.html';
+    }
+</script>
+</body>
+</html>
